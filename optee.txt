@@ -1,3 +1,7 @@
 gdb.execute("b tee_entry_std")
 
 Usata per settare un breakpoint (sul .elf?)
+
+-------------------------------------------
+
+Come imposto un breakpoint su user_ta_enter?
