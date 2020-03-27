@@ -1,0 +1,3 @@
+gdb.execute("b tee_entry_std")
+
+Usata per settare un breakpoint (sul .elf?)
