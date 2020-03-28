@@ -5,3 +5,12 @@ Usata per settare un breakpoint (sul .elf?)
 -------------------------------------------
 
 Come imposto un breakpoint su user_ta_enter?
+
+Te lo dico io:
+	(gdb) source gdb-optee.py
+	(gdb) load_tee
+	(gdb) b user_ta.c:user_ta_enter
+
+Ora, come avvio l'esecuzione per far scattare questo breakpoint?
+Perché se poi carichi load_host hello_world, si perde la precedente tabella e se non carichi
+hello_world, non saprei come avviarla
