@@ -14,3 +14,15 @@ Te lo dico io:
 Ora, come avvio l'esecuzione per far scattare questo breakpoint?
 Perché se poi carichi load_host hello_world, si perde la precedente tabella e se non carichi
 hello_world, non saprei come avviarla
+
+Se modifichiamo load_host hello_world per includere questo pezzo di codice:
+	gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, TEE_ELF))
+			gdb.execute("b tee_entry_std")
+
+La funzione invoke di LoadTA (riga 118), diventerebbe così:
+	# Parte di load_tee per caricare il breakpoint in user_ta_enter
+	gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, TEE_ELF))
+        gdb.execute("b tee_entry_std")
+	# Parte pre-esistente che carica i breakpoint della Trusted Application da eseguire
+	gdb.execute("add-symbol-file {}/{} {}".format(OPTEE_PROJ_PATH, ta, TA_LOAD_ADDR))
+        gdb.execute("b TA_InvokeCommandEntryPoint")
