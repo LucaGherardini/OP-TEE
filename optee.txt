@@ -34,6 +34,9 @@ Togli la stampa minacciosa di ALLAH da
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Per la procedura, fai una pulizia dell'albero di optee (email Joakim), e rifai il make con le stesse opzioni di quelle usate nella Shell 1. Ricorda di fare un "run" normale (non run-only)
+al primo giro.
+
 Procedura:
 
 Shell 1:
