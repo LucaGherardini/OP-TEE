@@ -19,10 +19,34 @@ Se modifichiamo load_host hello_world per includere questo pezzo di codice:
 	gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, TEE_ELF))
 			gdb.execute("b tee_entry_std")
 
-La funzione invoke di LoadTA (riga 118), diventerebbe così:
+La funzione invoke di LoadHost (N.B. LoadHost, non LoadTA, ho controllato), diventerebbe così:
 	# Parte di load_tee per caricare il breakpoint in user_ta_enter
 	gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, TEE_ELF))
         gdb.execute("b tee_entry_std")
 	# Parte pre-esistente che carica i breakpoint della Trusted Application da eseguire
 	gdb.execute("add-symbol-file {}/{} {}".format(OPTEE_PROJ_PATH, ta, TA_LOAD_ADDR))
         gdb.execute("b TA_InvokeCommandEntryPoint")
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Togli la stampa minacciosa di ALLAH da 
+~/Optee/optee_os/core/arch/arm/kernel/user_ta.c
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Procedura:
+
+Shell 1:
+	make CFG_TA_ASLR=y GDBSERVER=y run-only
+	c
+
+Shell Normal:
+	root
+	gdbserver :12345 optee_example_hello_world
+
+Shell 2:
+	./gdb -q
+	source gdb-optee.py 
+	load_host hello_world
+	connect gdbserver
+	c 

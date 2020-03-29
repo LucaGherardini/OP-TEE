@@ -60,7 +60,7 @@ TA_LOAD_ADDR="0x10d020"
 # Main path to a OP-TEE project which can be overridden by exporting
 # OPTEE_PROJ_PATH to another valid setup coming from build.git
 # (https://github.com/OP-TEE/build)
-OPTEE_PROJ_PATH = "/home/luca/Optee_Repo/qemu"
+OPTEE_PROJ_PATH = "/home/luca/Optee"
 if 'OPTEE_PROJ_PATH' in os.environ:
     OPTEE_PROJ_PATH = os.environ['OPTEE_PROJ_PATH']
     # QEMU v7 is the default, but if OPTEE_PROJ_PATH it's probably QEMU v8 and
@@ -169,8 +169,6 @@ class LoadTA(gdb.Command):
                 print("Unknown TA!")
                 return
 
-			# execute -> TA_LOAD_ADDR shuffled
-
             gdb.execute("add-symbol-file {}/{} {}".format(OPTEE_PROJ_PATH, ta, TA_LOAD_ADDR))
             gdb.execute("b TA_InvokeCommandEntryPoint")
 
@@ -214,6 +212,13 @@ class LoadHost(gdb.Command):
             gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, binary))
 
             # FIXME: This must be updated to support QEMU v8 for example (path ...)
+
+            # TO-DO: Viene chiamata questa funzione per caricare i simboli relativi alla TA "hello_world"
+            print("LoadHost")
+            gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, TEE_ELF))
+            gdb.execute("b tee_entry_std")
+
+
             gdb.execute("set sysroot {}/{}".format(OPTEE_PROJ_PATH, "out-br/host/arm-buildroot-linux-gnueabihf/sysroot"))
             gdb.execute("b main")
 
