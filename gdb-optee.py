@@ -213,10 +213,17 @@ class LoadHost(gdb.Command):
 
             # FIXME: This must be updated to support QEMU v8 for example (path ...)
 
-            # TO-DO: Viene chiamata questa funzione per caricare i simboli relativi alla TA "hello_world"
-            print("LoadHost")
-            gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, TEE_ELF))
-            gdb.execute("b tee_entry_std")
+            """
+                Load TEE application "user_ta" once by gdb shell, 
+                get expected address of breakpoint set into 'user_ta_enter' (printed by gdb script itself, so easily obtainable inside LoadTEE class)
+                store it into a global-scope variable inside this script
+                when executing "user_ta" (type 'c' in gdb shell), get effective address of breakpoint set, and compute offsed applied by that instance of QEMU
+
+                Now, when load_host is invoked, we can figure out the effective address of the breakpoints set
+
+                N.B.: gdb.execute("symbol-file {}/{}") doesn't expect address, 
+                instead gdb.execute("add-symbol-file {}/{} {}") does, consider modify this line of code to suit this new purpose
+            """
 
 
             gdb.execute("set sysroot {}/{}".format(OPTEE_PROJ_PATH, "out-br/host/arm-buildroot-linux-gnueabihf/sysroot"))
