@@ -209,7 +209,6 @@ class LoadHost(gdb.Command):
             else:
                 print("Unknown host binary!")
                 return
-            gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, binary))
 
             # FIXME: This must be updated to support QEMU v8 for example (path ...)
 
@@ -223,11 +222,36 @@ class LoadHost(gdb.Command):
 
                 N.B.: gdb.execute("symbol-file {}/{}") doesn't expect address, 
                 instead gdb.execute("add-symbol-file {}/{} {}") does, consider modify this line of code to suit this new purpose
+
+                GDB shell procedure:
+                    (gdb) source gdb-optee.py
+                    (gdb) load_tee
+                    (gdb) b user_ta.c:user_ta_enter
             """
 
+            print("Invoking load_tee inside \"LoadHost\" function")
+            gdb.execute("load_tee")
+            gdb.execute("b user_ta.c:user_ta_enter")
+
+            # Now, we SHOULD have breakpoint loaded
+            print("Loading load_host " + str(arg))
+            #gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, binary))
+            gdb.execute("add-symbol-file {}/{} {}".format(OPTEE_PROJ_PATH, binary, TA_LOAD_ADDR))
 
             gdb.execute("set sysroot {}/{}".format(OPTEE_PROJ_PATH, "out-br/host/arm-buildroot-linux-gnueabihf/sysroot"))
             gdb.execute("b main")
+
+            """
+                    make CFG_TA_ASLR=y GDBSERVER=y run-only
+
+                poi fai il log sulla Normal UART, ti metti in ascolto sul gdbserver al solito modo:
+                    gdbserver :12345 optee_example_hello_world
+
+                dalla shell gdb carichi il source, fai semplicemente
+                    load_host hello_world
+                    connect gdbserver
+                    c
+            """
 
         except IndexError:
             print("No host binary specified")
