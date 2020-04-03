@@ -60,7 +60,7 @@ TA_LOAD_ADDR="0x10d020"
 # Main path to a OP-TEE project which can be overridden by exporting
 # OPTEE_PROJ_PATH to another valid setup coming from build.git
 # (https://github.com/OP-TEE/build)
-OPTEE_PROJ_PATH = "/home/luca/Optee"
+OPTEE_PROJ_PATH = "/media/jbech/SSHD_LINUX/devel/optee_projects/qemu"
 if 'OPTEE_PROJ_PATH' in os.environ:
     OPTEE_PROJ_PATH = os.environ['OPTEE_PROJ_PATH']
     # QEMU v7 is the default, but if OPTEE_PROJ_PATH it's probably QEMU v8 and
@@ -168,50 +168,6 @@ class LoadTA(gdb.Command):
             else:
                 print("Unknown TA!")
                 return
-
-            # INIZIO MODIFICHE
-
-            """
-                Load TEE application "user_ta" once by gdb shell, 
-                get expected address of breakpoint set into 'user_ta_enter' (printed by gdb script itself, so easily obtainable inside LoadTEE class)
-                store it into a global-scope variable inside this script
-                when executing "user_ta" (type 'c' in gdb shell), get effective address of breakpoint set, and compute offsed applied by that instance of QEMU
-
-                Now, when load_host is invoked, we can figure out the effective address of the breakpoints set
-
-                N.B.: gdb.execute("symbol-file {}/{}") doesn't expect address, 
-                instead gdb.execute("add-symbol-file {}/{} {}") does, consider modify this line of code to suit this new purpose
-
-                GDB shell procedure:
-                    (gdb) source gdb-optee.py
-                    (gdb) load_tee
-                    (gdb) b user_ta.c:user_ta_enter
-            """
-
-            print("Invoking load_tee inside \"LoadHost\" function")
-            gdb.execute("load_ta hello_world")
-            gdb.execute("b user_ta.c:user_ta_enter")
-
-            gdb.execute("connect")
-            gdb.execute("c")
-            gdb.execute("c")
-
-
-            gdb.execute("add-symbol-file {}/{} {}".format(OPTEE_PROJ_PATH, ta, TA_LOAD_ADDR))
-            gdb.execute("b TA_InvokeCommandEntryPoint")
-
-
-            print("Big experiment")
-            gdb.execute("b TA_InvokeCommandEntryPoint")
-
-            """
-                Get effective TA_LOAD_ADDR
-                remove breakpoints
-                execute hello_world with new TA_LOAD_ADDR
-            """
-
-            # FINE MODIFICHE
-
 
             gdb.execute("add-symbol-file {}/{} {}".format(OPTEE_PROJ_PATH, ta, TA_LOAD_ADDR))
             gdb.execute("b TA_InvokeCommandEntryPoint")
@@ -368,4 +324,3 @@ class OPTEECmd(gdb.Command):
         return filter(lambda candidate: candidate.startswith(word), candidates)
 
 OPTEECmd()
-
