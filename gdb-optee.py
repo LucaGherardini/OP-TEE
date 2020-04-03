@@ -188,23 +188,20 @@ class LoadTA(gdb.Command):
                     (gdb) b user_ta.c:user_ta_enter
             """
 
-            print("Invoking load_tee inside \"LoadHost\" function")
-            gdb.execute("load_ta hello_world")
+            gdb.execute("load_tee")
             gdb.execute("b user_ta.c:user_ta_enter")
 
-            gdb.execute("connect")
-            gdb.execute("c")
-            gdb.execute("c")
-
-
-            gdb.execute("add-symbol-file {}/{} {}".format(OPTEE_PROJ_PATH, ta, TA_LOAD_ADDR))
-            gdb.execute("b TA_InvokeCommandEntryPoint")
-
-
-            print("Big experiment")
-            gdb.execute("b TA_InvokeCommandEntryPoint")
-
             """
+                watch roadmap on pdf
+
+                DONE: loaded TEE elf
+                DONE: break user_ta_enter
+                DONE: stops on user_ta_enter
+
+                TO-DO: what does TA_InvokeCommandEntryPoint?
+
+                https://stackoverflow.com/questions/10483544/stopping-at-the-first-machine-code-instruction-in-gdb
+
                 Get effective TA_LOAD_ADDR
                 remove breakpoints
                 execute hello_world with new TA_LOAD_ADDR
