@@ -190,6 +190,7 @@ class LoadTA(gdb.Command):
 
             gdb.execute("load_tee")
             gdb.execute("b user_ta.c:user_ta_enter")
+            gdb.execute("b TA_InvokeCommandEntryPoint")
 
             """
                 watch roadmap on pdf
@@ -199,8 +200,15 @@ class LoadTA(gdb.Command):
                 DONE: stops on user_ta_enter
 
                 TO-DO: what does TA_InvokeCommandEntryPoint?
+                    impostare il TA_InvokeCommandEntryPoint per fermarci appena entrati nella TA ed impostare da lì l'indirizzo corretto (?)
+
+                TO-DO: set breakpoint in user_ta.c:138
+                TO-DO: accedi al puntatore con 
+                    (gdb) p (uaddr_t *)&utc->entry_func
+                Il valore è il D/LD in Secure World + 32, quindi togliendo il 32 abbiamo l'indirizzo in cui viene caricata la TA(?) e da cui possiamo aggiustare il breakpoint
 
                 https://stackoverflow.com/questions/10483544/stopping-at-the-first-machine-code-instruction-in-gdb
+
 
                 Get effective TA_LOAD_ADDR
                 remove breakpoints

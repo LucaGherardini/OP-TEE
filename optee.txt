@@ -1,6 +1,6 @@
 gdb.execute("b tee_entry_std")
 
-Usata per settare un breakpoint (sul .elf?)
+Usata per settare un breakpoint
 
 -------------------------------------------
 
@@ -27,29 +27,31 @@ La funzione invoke di LoadHost (N.B. LoadHost, non LoadTA, ho controllato), dive
 	gdb.execute("add-symbol-file {}/{} {}".format(OPTEE_PROJ_PATH, ta, TA_LOAD_ADDR))
         gdb.execute("b TA_InvokeCommandEntryPoint")
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Togli la stampa minacciosa di ALLAH da 
-~/Optee/optee_os/core/arch/arm/kernel/user_ta.c
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Loading TEE core symbols for OP-TEE!
+Breakpoint 1 at 0xe135866: file core/arch/arm/tee/entry_std.c, line 475.
+Breakpoint 2 at 0xe100fe4: file core/arch/arm/kernel/user_ta.c, line 129.
+add symbol table from file "/home/luca/Optee/out-br/build/optee_examples-1.0/hello_world/ta/out/8aaaf200-2450-11e4-abe2-0002a5d5c51b.elf" at
+	.text_addr = 0x4000d020
+Breakpoint 3 at 0x4001877c: file hello_world_ta.c, line 147.
 
-Per la procedura, fai una pulizia dell'albero di optee (email Joakim), e rifai il make con le stesse opzioni di quelle usate nella Shell 1. Ricorda di fare un "run" normale (non run-only)
-al primo giro.
+D/LD:  ldelf:169 ELF (8aaaf200-2450-11e4-abe2-0002a5d5c51b) at 0x125000
 
-Procedura:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/luca/Optee/optee_os/core/tee/uuid.c
+/home/luca/Optee/optee_os/core/arch/arm/kernel/user_ta.c
+/home/luca/Optee/out-br/build/optee_examples-1.0/hello_world/ta/hello_world_ta.c
+/home/luca/Optee/out-br/build/optee_examples-1.0/hello_world/ta/include/hello_world_ta.h
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Shell 1:
-	make CFG_TA_ASLR=y GDBSERVER=y run-only
-	c
+In user_ta.h c'è la struct user_ta_ctx
+kernel/user_ta.h
 
-Shell Normal:
-	root
-	gdbserver :12345 optee_example_hello_world
+(gdb) b user_ta.c:138	# Prendiamo il load address del TA (da testare)
+(gbd) p (uaddr_t *)&utc->entry_func 
+(gdb) p (int) &utc->uctx->ctx->uuid
 
-Shell 2:
-	./gdb -q
-	source gdb-optee.py 
-	load_host hello_world
-	connect gdbserver
-	c 
+
+entry_func = D/LD + 32 (numeri interi)
