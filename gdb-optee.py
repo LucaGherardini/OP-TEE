@@ -112,42 +112,6 @@ class LoadOPTEE(gdb.Command):
         gdb.execute("b tee_entry_std")
         """
 
-        gdb.execute("b user_ta.c:138")
-        gdb.execute("continue")
-
-        address = gdb.parse_and_eval("utc->entry_func")
-        address = hex(int(address)) # This address must be decreased by 32 and converted in esadecimal (32 is 20 in hexadecimal)
-        print("Address: " + str(address)) 
-
-        #gdb.execute("b TA_InvokeCommandEntryPoint")
-        TA_LOAD_ADDR = address
-
-        """
-            watch roadmap on pdf
-
-            DONE: loaded TEE elf
-            DONE: break user_ta_enter
-            DONE: stops on user_ta_enter
-
-            TO-DO: what does TA_InvokeCommandEntryPoint?
-                impostare il TA_InvokeCommandEntryPoint per fermarci appena entrati nella TA ed impostare da li l'indirizzo corretto (?)
-
-            TO-DO: set breakpoint in user_ta.c:138
-            TO-DO: accedi al puntatore con 
-                (gdb) p (uaddr_t *)&utc->entry_func
-            Il valore e' il D/LD in Secure World + 32, quindi togliendo il 32 abbiamo l'indirizzo in cui viene caricata la TA(?) e da cui possiamo aggiustare il breakpoint
-
-            https://stackoverflow.com/questions/10483544/stopping-at-the-first-machine-code-instruction-in-gdb
-
-
-            Get effective TA_LOAD_ADDR
-            remove breakpoints
-            execute hello_world with new TA_LOAD_ADDR
-        """
-
-        gdb.execute("load_ta hello_world")
-
-
 LoadOPTEE()
 
 class LoadTA(gdb.Command):
@@ -210,60 +174,59 @@ class LoadTA(gdb.Command):
 
             # INIZIO MODIFICHE
 
-            """
-                Load TEE application "user_ta" once by gdb shell, 
-                get expected address of breakpoint set into 'user_ta_enter' (printed by gdb script itself, so easily obtainable inside LoadTEE class)
-                store it into a global-scope variable inside this script
-                when executing "user_ta" (type 'c' in gdb shell), get effective address of breakpoint set, and compute offsed applied by that instance of QEMU
-
-                Now, when load_host is invoked, we can figure out the effective address of the breakpoints set
-
-                N.B.: gdb.execute("symbol-file {}/{}") doesn't expect address, 
-                instead gdb.execute("add-symbol-file {}/{} {}") does, consider modify this line of code to suit this new purpose
-
-                GDB shell procedure:
-                    (gdb) source gdb-optee.py
-                    (gdb) load_tee
-                    (gdb) b user_ta.c:user_ta_enter
-            """
-
-            """
-            gdb.execute("load_tee")
-            #gdb.execute("b user_ta.c:user_ta_enter")
+            gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, TEE_ELF))
             gdb.execute("b user_ta.c:138")
             gdb.execute("continue")
 
             address = gdb.parse_and_eval("utc->entry_func")
-            address = hex(int(address)-32) # This address must be decreased by 32 and converted in esadecimal (32 is 20 in hexadecimal)
-            print("Address: " + str(address)) 
+            #print("Address found (integer): {}".format(address))
+            #address = hex(int(address)) # This address must be decreased by 32 and converted in hexadecimal (32 is 20 in hexadecimal)
+            address = str(hex(int(address)))
+            print("Address (hexadecimal): " + str(address)) 
+
+            address = address[:len(address)-3] + "020"
+            print("Address modified: " + str(address))
 
             #gdb.execute("b TA_InvokeCommandEntryPoint")
+            #TA_LOAD_ADDR = hex(int(address))
             TA_LOAD_ADDR = address
-            """
+            print("TA_LOAD_ADDR updated: " + str(TA_LOAD_ADDR))
 
             """
+                gdb.execute("symbol-file {}/{}") doesn't expect address, 
+                instead gdb.execute("add-symbol-file {}/{} {}") does, use this to suit this new purpose
+
+                GDB shell procedure:
+                    (gdb) source gdb-optee.py
+                    (gdb) connect
+                    (gdb) load_ta hello_world 
+
+                ~~~
+
                 watch roadmap on pdf
 
-                DONE: loaded TEE elf
-                DONE: break user_ta_enter
-                DONE: stops on user_ta_enter
-
-                TO-DO: what does TA_InvokeCommandEntryPoint?
-                    impostare il TA_InvokeCommandEntryPoint per fermarci appena entrati nella TA ed impostare da li l'indirizzo corretto (?)
-
-                TO-DO: set breakpoint in user_ta.c:138
-                TO-DO: accedi al puntatore con 
+                load TEE elf
+                breakpoint on user_ta_enter (user_ta.c:138)
+                stop on user_ta_enter
+                access pointer with
                     (gdb) p (uaddr_t *)&utc->entry_func
-                Il valore e' il D/LD in Secure World + 32, quindi togliendo il 32 abbiamo l'indirizzo in cui viene caricata la TA(?) e da cui possiamo aggiustare il breakpoint
+                    (gdb) p utc->entry_func     # Convert this in hexadecimal to get address
+                Velue is il D/LD in Secure World + 32, so removing 32 we get address where TA is loaded
+                Use new address to set breapoint correctly
 
-                https://stackoverflow.com/questions/10483544/stopping-at-the-first-machine-code-instruction-in-gdb
+                ~~~
 
+                out-br/build/ stores .elf files. Searching here right .elf for TA to load
 
-                Get effective TA_LOAD_ADDR
-                remove breakpoints
-                execute hello_world with new TA_LOAD_ADDR
+                (hello_world)
+                ~/Optee/out-br/build/optee_examples-1.0/hello_world/ta/out/
+                    8aaaf200-2450-11e4-abe2-0002a5d5c51b.ta
+
+                (acipher) 
+                D/LD: a734eed9-d6a1-4244-aa50-7c99719e7b7b
+                a734eed9-d6a1-4244-aa50-7c99719e7b7b.elf
+
             """
-
             # FINE MODIFICHE
 
 
