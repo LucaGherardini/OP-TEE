@@ -55,3 +55,31 @@ kernel/user_ta.h
 
 
 entry_func = D/LD + 32 (numeri interi)
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+~/Optee/optee_os/core/arch/arm/include/kernel/user_ta
+
+/*
+ * struct user_ta_ctx - user TA context
+ * @entry_func:		Entry address in TA
+ * @dump_entry_func:	Entry address in TA for dumping address mappings
+ *			and stack trace
+ * @ftrace_entry_func:	Entry address in ldelf for dumping ftrace data
+ * @ldelf_stack_ptr:	Stack pointer used for dumping address mappings and
+ *			stack trace
+ * @is_32bit:		True if 32-bit TA, false if 64-bit TA
+ * @is_initializing:	True if TA is not fully loaded
+ * @open_sessions:	List of sessions opened by this TA
+ * @cryp_states:	List of cryp states created by this TA
+ * @objects:		List of storage objects opened by this TA
+ * @storage_enums:	List of storage enumerators opened by this TA
+ * @stack_ptr:		Stack pointer
+ * @vm_info:		Virtual memory map of this context
+ * @ta_time_offs:	Time reference used by the TA
+ * @areas:		Memory areas registered by pager
+ * @vfp:		State of VFP registers
+ * @ctx:		Generic TA context
+ */
+
+ to_user_ta_ctx 

@@ -175,6 +175,7 @@ class LoadTA(gdb.Command):
             # INIZIO MODIFICHE
 
             gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, TEE_ELF))
+            gdb.execute("b user_ta.c:132")
             gdb.execute("b user_ta.c:138")
             gdb.execute("continue")
 
