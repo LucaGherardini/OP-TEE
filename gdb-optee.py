@@ -68,6 +68,12 @@ if 'OPTEE_PROJ_PATH' in os.environ:
     # the OPTEE_PROJ_PATH has been changed.
     TA_LOAD_ADDR="0x4000d020"
 
+LDELF_PATH = OPTEE_PROJ_PATH + "/optee_os/out/arm/ldelf"
+TEXT_OFFSET = "0x20"
+RODATA_OFFSET = "0x89a0"
+DATA_OFFSET = "0xb0a0"
+BSS_OFFSET = "0xb10c"
+
 # The TA_LOAD_ADDR exported as environment variable always has the final
 # saying.
 if 'TA_LOAD_ADDR' in os.environ:
@@ -175,22 +181,51 @@ class LoadTA(gdb.Command):
             # INIZIO MODIFICHE
 
             gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, TEE_ELF))
-            gdb.execute("b user_ta.c:132")
-            gdb.execute("b user_ta.c:138")
+            #gdb.execute("add-symbol-file {}/{} {}".format(LDELF_PATH, "ldelf.elf", TA_LOAD_ADDR))
+            gdb.execute("b user_ta.c:704")
+            #gdb.execute("b user_ta.c:132") # trst
+            #gdb.execute("b user_ta.c:138")
+            #gdb.execute("b thread.c:1280")
+            #gdb.execute("b main.c:159")
+            #print("Breakpoint set on ldelf()")
             gdb.execute("continue")
 
-            address = gdb.parse_and_eval("utc->entry_func")
-            #print("Address found (integer): {}".format(address))
-            #address = hex(int(address)) # This address must be decreased by 32 and converted in hexadecimal (32 is 20 in hexadecimal)
-            address = str(hex(int(address)))
-            print("Address (hexadecimal): " + str(address)) 
+            LDELF_ADDR = gdb.parse_and_eval("code_addr")
+            LDELF_ADDR = int(LDELF_ADDR)
+            #LDELF_ADDR = hex(int(LDELF_ADDR)) # This address must be increased by 32 and converted in hexadecimal (32 is 20 in hexadecimal, .text segment length)
+            #address = str(hex(int(address)))
+            #print("Address (hexadecimal): " + str(address)) 
 
-            address = address[:len(address)-3] + "020"
-            print("Address modified: " + str(address))
+            #address = address[:len(address)-3] + "020"
+            #print("Address modified: " + str(address))
 
             #gdb.execute("b TA_InvokeCommandEntryPoint")
             #TA_LOAD_ADDR = hex(int(address))
-            TA_LOAD_ADDR = address
+
+            #add-symbol-file ldelf.elf 0x104000 -s .rodata 0x1052408 -s .data 0x1076768 -s .bss 0x1077512
+            RODATA_ADDR = hex( LDELF_ADDR + int(RODATA_OFFSET, 16))
+            DATA_ADDR = hex( LDELF_ADDR + int(DATA_OFFSET, 16))
+            BSS_ADDR = hex( LDELF_ADDR + int(BSS_OFFSET, 16))
+
+            print("Addresses:")
+            print("LDELF load address: {}".format(LDELF_ADDR))
+            print("RODATA_ADDRESS: {} (offset {})".format(RODATA_ADDR, RODATA_OFFSET))
+            print("DATA_ADDRESS: {} (offset {})".format(DATA_ADDR, DATA_OFFSET))
+            print("BSS_ADDR: {} (offset {})".format(BSS_ADDR, BSS_OFFSET))
+
+            LDELF_ADDR = hex(LDELF_ADDR)
+
+            gdb.execute("add-symbol-file {}/{} {} -s .rodata {} -s .data {} -s .bss {}".format(LDELF_PATH, "ldelf.elf", LDELF_ADDR, RODATA_ADDR, DATA_ADDR, BSS_ADDR))
+            #gdb.execute("b ldelf/main.c:130")
+            #gdb.execute("continue")
+            gdb.execute("b ldelf/main.c:168")
+            gdb.execute("continue")
+
+            address = gdb.parse_and_eval("elf->load_addr")
+            print("load_addr: " + str(address))
+            TA_LOAD_ADDR = hex(int(address) + 32)
+            
+            #TA_LOAD_ADDR = address
             print("TA_LOAD_ADDR updated: " + str(TA_LOAD_ADDR))
 
             """
@@ -229,7 +264,6 @@ class LoadTA(gdb.Command):
 
             """
             # FINE MODIFICHE
-
 
             gdb.execute("add-symbol-file {}/{} {}".format(OPTEE_PROJ_PATH, ta, TA_LOAD_ADDR))
             gdb.execute("b TA_InvokeCommandEntryPoint")

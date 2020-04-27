@@ -83,3 +83,14 @@ entry_func = D/LD + 32 (numeri interi)
  */
 
  to_user_ta_ctx 
+
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ ~/Optee/optee_os/ldelf/ta_elf.c 
+
+ /home/luca/Optee/optee_os/core/arch/arm/kernel/thread.c, line 1280 for thread_enter_user_mode()
+
+ /home/luca/Optee/optee_os/ldelf/main.c 
+ /home/luca/Optee/optee_os/out/arm/ldelf/ldelf.elf
+
+ luca@luca-X580VN:~/Optee/optee_os/out/arm/ldelf$ readelf -S ldelf.elf 
