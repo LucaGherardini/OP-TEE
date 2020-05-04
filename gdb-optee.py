@@ -1,5 +1,6 @@
 import gdb
 import os
+import subprocess
 from curses.ascii import isgraph
 
 # All paths here have been verified and used with OP-TEE v3.2.0
@@ -69,10 +70,6 @@ if 'OPTEE_PROJ_PATH' in os.environ:
     TA_LOAD_ADDR="0x4000d020"
 
 LDELF_PATH = OPTEE_PROJ_PATH + "/optee_os/out/arm/ldelf"
-TEXT_OFFSET = "0x20"
-RODATA_OFFSET = "0x89a0"
-DATA_OFFSET = "0xb0a0"
-BSS_OFFSET = "0xb10c"
 
 # The TA_LOAD_ADDR exported as environment variable always has the final
 # saying.
@@ -120,9 +117,29 @@ class LoadOPTEE(gdb.Command):
 
 LoadOPTEE()
 
+def readSegments(file):
+    #TODO: maybe decode('utf-8') could be removed
+    result = subprocess.check_output( ("readelf -S " + file).split(' '))
+
+    result = result.split('\n')
+
+    lines_to_store = ['.text', '.rodata', '.data', '.bss']
+    offsets = {}
+
+    for line in result:
+        tmp = line[line.find(' .') : line.find('\t')].split(' ')
+        seg = [l for l in tmp if l != ""]
+        if seg != []: 
+            if seg[0] in lines_to_store:
+                offsets[seg[0]] = seg[2]
+
+    return offsets
+
 class LoadTA(gdb.Command):
     def __init__(self):
         super(LoadTA, self).__init__("load_ta", gdb.COMMAND_USER)
+
+
 
     def invoke(self, arg, from_tty):
         try:
@@ -203,15 +220,18 @@ class LoadTA(gdb.Command):
             #TA_LOAD_ADDR = hex(int(address))
 
             #add-symbol-file ldelf.elf 0x104000 -s .rodata 0x1052408 -s .data 0x1076768 -s .bss 0x1077512
-            RODATA_ADDR = hex( LDELF_ADDR + int(RODATA_OFFSET, 16))
-            DATA_ADDR = hex( LDELF_ADDR + int(DATA_OFFSET, 16))
-            BSS_ADDR = hex( LDELF_ADDR + int(BSS_OFFSET, 16))
 
-            print("Addresses:")
+            segments = readSegments(LDELF_PATH + "/ldelf.elf")
+
+            RODATA_ADDR = hex( LDELF_ADDR + int(segments['.rodata'], 16))
+            DATA_ADDR = hex( LDELF_ADDR + int(segments['.data'], 16))
+            BSS_ADDR = hex( LDELF_ADDR + int(segments['.bss'], 16))
+
+            print("---Addresses(LDELF)---")
             print("LDELF load address: {}".format(LDELF_ADDR))
-            print("RODATA_ADDRESS: {} (offset {})".format(RODATA_ADDR, RODATA_OFFSET))
-            print("DATA_ADDRESS: {} (offset {})".format(DATA_ADDR, DATA_OFFSET))
-            print("BSS_ADDR: {} (offset {})".format(BSS_ADDR, BSS_OFFSET))
+            print("RODATA_ADDR: {} (offset {})".format(RODATA_ADDR, segments['.rodata']))
+            print("DATA_ADDR: {} (offset {})".format(DATA_ADDR, segments['.data']))
+            print("BSS_ADDR: {} (offset {})".format(BSS_ADDR, segments['.bss']))
 
             LDELF_ADDR = hex(LDELF_ADDR)
 
@@ -223,10 +243,10 @@ class LoadTA(gdb.Command):
 
             address = gdb.parse_and_eval("elf->load_addr")
             print("load_addr: " + str(address))
-            TA_LOAD_ADDR = hex(int(address) + 32)
+            TA_LOAD_ADDR = int(address)
             
             #TA_LOAD_ADDR = address
-            print("TA_LOAD_ADDR updated: " + str(TA_LOAD_ADDR))
+            print("TA_LOAD_ADDR updated: " + str(hex(TA_LOAD_ADDR)))
 
             """
                 gdb.execute("symbol-file {}/{}") doesn't expect address, 
@@ -265,7 +285,23 @@ class LoadTA(gdb.Command):
             """
             # FINE MODIFICHE
 
-            gdb.execute("add-symbol-file {}/{} {}".format(OPTEE_PROJ_PATH, ta, TA_LOAD_ADDR))
+            segments = readSegments(OPTEE_PROJ_PATH + "/" + ta)
+
+            TA_LOAD_ADDR = TA_LOAD_ADDR + int(segments['.text'], 16)
+            RODATA_ADDR = hex( TA_LOAD_ADDR + int(segments['.rodata'], 16))
+            DATA_ADDR = hex( TA_LOAD_ADDR + int(segments['.data'], 16))
+            BSS_ADDR = hex( TA_LOAD_ADDR + int(segments['.bss'], 16))
+
+            TA_LOAD_ADDR = hex(TA_LOAD_ADDR)
+
+            print("---Addresses(TA)---")
+            print("TA load address: {}".format(TA_LOAD_ADDR))
+            print("RODATA_ADDR: {} (offset {})".format(RODATA_ADDR, segments['.rodata']))
+            print("DATA_ADDR: {} (offset {})".format(DATA_ADDR, segments['.data']))
+            print("BSS_ADDR: {} (offset {})".format(BSS_ADDR, segments['.bss']))
+
+            #gdb.execute("add-symbol-file {}/{} {} -s .rodata {} -s .data {} -s .bss {}".format(LDELF_PATH, "ldelf.elf", LDELF_ADDR, RODATA_ADDR, DATA_ADDR, BSS_ADDR))
+            gdb.execute("add-symbol-file {}/{} {} -s .rodata {} -s .data {} -s .bss {}".format(OPTEE_PROJ_PATH, ta, TA_LOAD_ADDR, RODATA_ADDR, DATA_ADDR, BSS_ADDR))
             gdb.execute("b TA_InvokeCommandEntryPoint")
 
         except IndexError:
