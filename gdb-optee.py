@@ -1,7 +1,7 @@
 import gdb
 import os
-import subprocess
 from curses.ascii import isgraph
+import subprocess
 
 # All paths here have been verified and used with OP-TEE v3.2.0
 
@@ -69,6 +69,7 @@ if 'OPTEE_PROJ_PATH' in os.environ:
     # the OPTEE_PROJ_PATH has been changed.
     TA_LOAD_ADDR="0x4000d020"
 
+# Path to ldelf.elf symbols table
 LDELF_PATH = OPTEE_PROJ_PATH + "/optee_os/out/arm/ldelf"
 
 # The TA_LOAD_ADDR exported as environment variable always has the final
@@ -110,28 +111,21 @@ class LoadOPTEE(gdb.Command):
     def invoke(self, arg, from_tty):
         print("Loading TEE core symbols for OP-TEE!")
         gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, TEE_ELF))
-        """
-        TO-DO: Commented to try if it works
         gdb.execute("b tee_entry_std")
-        """
 
 LoadOPTEE()
 
+# Function used to read segments from a given .elf file path, returning dictionary containing segments addresses (i.e. .text, .rodata, .data, .bss)
 def readSegments(file):
-    #TODO: maybe decode('utf-8') could be removed
     result = subprocess.check_output( ("readelf -S " + file).split(' '))
-
     result = result.split('\n')
-
-    lines_to_store = ['.text', '.rodata', '.data', '.bss']
     offsets = {}
 
     for line in result:
         tmp = line[line.find(' .') : line.find('\t')].split(' ')
         seg = [l for l in tmp if l != ""]
         if seg != []: 
-            if seg[0] in lines_to_store:
-                offsets[seg[0]] = seg[2]
+            offsets[seg[0]] = seg[2]
 
     return offsets
 
@@ -195,37 +189,20 @@ class LoadTA(gdb.Command):
                 print("Unknown TA!")
                 return
 
-            # INIZIO MODIFICHE
-
+            # Loading TEE.elf and setting breakpoint to get ldelf load address
             gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, TEE_ELF))
-            #gdb.execute("add-symbol-file {}/{} {}".format(LDELF_PATH, "ldelf.elf", TA_LOAD_ADDR))
             gdb.execute("b user_ta.c:704")
-            #gdb.execute("b user_ta.c:132") # trst
-            #gdb.execute("b user_ta.c:138")
-            #gdb.execute("b thread.c:1280")
-            #gdb.execute("b main.c:159")
-            #print("Breakpoint set on ldelf()")
             gdb.execute("continue")
-
             LDELF_ADDR = gdb.parse_and_eval("code_addr")
+            # LDELF_ADDR is cast to integer for further operations on segments
             LDELF_ADDR = int(LDELF_ADDR)
-            #LDELF_ADDR = hex(int(LDELF_ADDR)) # This address must be increased by 32 and converted in hexadecimal (32 is 20 in hexadecimal, .text segment length)
-            #address = str(hex(int(address)))
-            #print("Address (hexadecimal): " + str(address)) 
 
-            #address = address[:len(address)-3] + "020"
-            #print("Address modified: " + str(address))
-
-            #gdb.execute("b TA_InvokeCommandEntryPoint")
-            #TA_LOAD_ADDR = hex(int(address))
-
-            #add-symbol-file ldelf.elf 0x104000 -s .rodata 0x1052408 -s .data 0x1076768 -s .bss 0x1077512
-
+            # reading ldelf.elf segments and storing them
             segments = readSegments(LDELF_PATH + "/ldelf.elf")
-
             RODATA_ADDR = hex( LDELF_ADDR + int(segments['.rodata'], 16))
             DATA_ADDR = hex( LDELF_ADDR + int(segments['.data'], 16))
             BSS_ADDR = hex( LDELF_ADDR + int(segments['.bss'], 16))
+            LDELF_ADDR = hex(LDELF_ADDR)
 
             print("---Addresses(LDELF)---")
             print("LDELF load address: {}".format(LDELF_ADDR))
@@ -233,65 +210,23 @@ class LoadTA(gdb.Command):
             print("DATA_ADDR: {} (offset {})".format(DATA_ADDR, segments['.data']))
             print("BSS_ADDR: {} (offset {})".format(BSS_ADDR, segments['.bss']))
 
-            LDELF_ADDR = hex(LDELF_ADDR)
 
+            # Segments retrieved are explicitly loaded
             gdb.execute("add-symbol-file {}/{} {} -s .rodata {} -s .data {} -s .bss {}".format(LDELF_PATH, "ldelf.elf", LDELF_ADDR, RODATA_ADDR, DATA_ADDR, BSS_ADDR))
-            #gdb.execute("b ldelf/main.c:130")
-            #gdb.execute("continue")
             gdb.execute("b ldelf/main.c:168")
             gdb.execute("continue")
 
+            # TA load address is retrieved, and cast to integer for further operations
             address = gdb.parse_and_eval("elf->load_addr")
-            print("load_addr: " + str(address))
             TA_LOAD_ADDR = int(address)
-            
-            #TA_LOAD_ADDR = address
             print("TA_LOAD_ADDR updated: " + str(hex(TA_LOAD_ADDR)))
 
-            """
-                gdb.execute("symbol-file {}/{}") doesn't expect address, 
-                instead gdb.execute("add-symbol-file {}/{} {}") does, use this to suit this new purpose
-
-                GDB shell procedure:
-                    (gdb) source gdb-optee.py
-                    (gdb) connect
-                    (gdb) load_ta hello_world 
-
-                ~~~
-
-                watch roadmap on pdf
-
-                load TEE elf
-                breakpoint on user_ta_enter (user_ta.c:138)
-                stop on user_ta_enter
-                access pointer with
-                    (gdb) p (uaddr_t *)&utc->entry_func
-                    (gdb) p utc->entry_func     # Convert this in hexadecimal to get address
-                Velue is il D/LD in Secure World + 32, so removing 32 we get address where TA is loaded
-                Use new address to set breapoint correctly
-
-                ~~~
-
-                out-br/build/ stores .elf files. Searching here right .elf for TA to load
-
-                (hello_world)
-                ~/Optee/out-br/build/optee_examples-1.0/hello_world/ta/out/
-                    8aaaf200-2450-11e4-abe2-0002a5d5c51b.ta
-
-                (acipher) 
-                D/LD: a734eed9-d6a1-4244-aa50-7c99719e7b7b
-                a734eed9-d6a1-4244-aa50-7c99719e7b7b.elf
-
-            """
-            # FINE MODIFICHE
-
+            # reading ta.elf segments and storing them
             segments = readSegments(OPTEE_PROJ_PATH + "/" + ta)
-
-            TA_LOAD_ADDR = TA_LOAD_ADDR + int(segments['.text'], 16)
+            TA_LOAD_ADDR = TA_LOAD_ADDR + int(segments['.text'], 16) # .text size is added directly to TA_LOAD_ADDR, not specified apart
             RODATA_ADDR = hex( TA_LOAD_ADDR + int(segments['.rodata'], 16))
             DATA_ADDR = hex( TA_LOAD_ADDR + int(segments['.data'], 16))
             BSS_ADDR = hex( TA_LOAD_ADDR + int(segments['.bss'], 16))
-
             TA_LOAD_ADDR = hex(TA_LOAD_ADDR)
 
             print("---Addresses(TA)---")
@@ -300,7 +235,6 @@ class LoadTA(gdb.Command):
             print("DATA_ADDR: {} (offset {})".format(DATA_ADDR, segments['.data']))
             print("BSS_ADDR: {} (offset {})".format(BSS_ADDR, segments['.bss']))
 
-            #gdb.execute("add-symbol-file {}/{} {} -s .rodata {} -s .data {} -s .bss {}".format(LDELF_PATH, "ldelf.elf", LDELF_ADDR, RODATA_ADDR, DATA_ADDR, BSS_ADDR))
             gdb.execute("add-symbol-file {}/{} {} -s .rodata {} -s .data {} -s .bss {}".format(OPTEE_PROJ_PATH, ta, TA_LOAD_ADDR, RODATA_ADDR, DATA_ADDR, BSS_ADDR))
             gdb.execute("b TA_InvokeCommandEntryPoint")
 
