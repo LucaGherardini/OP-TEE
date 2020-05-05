@@ -1,0 +1,7 @@
+Add debugging of Trusted Applications with ASLR enabled
+
+When a Trusted Application is loaded with CFG_TA_ASLR=y, now gdb-optee.py script retrieves correct address to load symbols file at right place.
+When "load_ta" is called from gdb shell, tee.elf is loaded to set a breakpoint in user_ta.c, at line 704, to retrieve where ldelf is loaded.
+Segments of ldelf.elf are read to get right offsets to apply at "add-symbol-file" invocation. Furthermore, another breakpoint is set in main.c, line 168, to retrieve actual load address used for TA.
+Segments are read even for .elf of TA, to compute needed offsets, and to load symbols table of specific TA at right address, allowing correct debugging via gdb shell.
+

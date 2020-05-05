@@ -1,0 +1,116 @@
+From d278cf4286c73ec8a39dc642552ba6bcb9cc928d Mon Sep 17 00:00:00 2001
+From: Luca Gherardini <luca.gherardini96@gmail.com>
+Date: Tue, 5 May 2020 17:44:34 +0200
+Subject: [PATCH] Add debugging of Trusted Applications with ASLR enabled
+
+When a Trusted Application is loaded with CFG_TA_ASLR=y, now gdb-optee.py script retrieves correct address to load symbols file at right place.
+When "load_ta" is called from gdb shell, tee.elf is loaded to set a breakpoint in user_ta.c, at line 704, to retrieve where ldelf is loaded.
+Segments of ldelf.elf are read to get right offsets to apply at "add-symbol-file" invocation. Furthermore, another breakpoint is set in main.c, line 168, to retrieve actual load address used for TA.
+Segments are read even for .elf of TA, to compute needed offsets, and to load symbols table of specific TA at right address, allowing correct debugging via gdb shell.
+
+Co-authored-by: Luca Gherardini <luca.gherardini96@gmail.com>
+Co-authored-by: Simone Mione <simone.mione1@gmail.com>
+---
+ gdb-optee.py | 65 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 64 insertions(+), 1 deletion(-)
+
+diff --git a/gdb-optee.py b/gdb-optee.py
+index 10c3655..3054b54 100644
+--- a/gdb-optee.py
++++ b/gdb-optee.py
+@@ -1,6 +1,7 @@
+ import gdb
+ import os
+ from curses.ascii import isgraph
++import subprocess
+ 
+ # All paths here have been verified and used with OP-TEE v3.2.0
+ 
+@@ -68,6 +69,9 @@ if 'OPTEE_PROJ_PATH' in os.environ:
+     # the OPTEE_PROJ_PATH has been changed.
+     TA_LOAD_ADDR="0x4000d020"
+ 
++# Path to ldelf.elf symbols table
++LDELF_PATH = OPTEE_PROJ_PATH + "/optee_os/out/arm/ldelf"
++
+ # The TA_LOAD_ADDR exported as environment variable always has the final
+ # saying.
+ if 'TA_LOAD_ADDR' in os.environ:
+@@ -111,6 +115,20 @@ class LoadOPTEE(gdb.Command):
+ 
+ LoadOPTEE()
+ 
++# Function used to read segments from a given .elf file path, returning dictionary containing segments addresses (i.e. .text, .rodata, .data, .bss)
++def readSegments(file):
++    result = subprocess.check_output( ("readelf -S " + file).split(' '))
++    result = result.split('\n')
++    offsets = {}
++
++    for line in result:
++        tmp = line[line.find(' .') : line.find('\t')].split(' ')
++        seg = [l for l in tmp if l != ""]
++        if seg != []:
++            offsets[seg[0]] = seg[2]
++
++    return offsets
++
+ class LoadTA(gdb.Command):
+     def __init__(self):
+         super(LoadTA, self).__init__("load_ta", gdb.COMMAND_USER)
+@@ -169,7 +187,52 @@ class LoadTA(gdb.Command):
+                 print("Unknown TA!")
+                 return
+ 
+-            gdb.execute("add-symbol-file {}/{} {}".format(OPTEE_PROJ_PATH, ta, TA_LOAD_ADDR))
++            # Loading TEE.elf and setting breakpoint to get ldelf load address
++            gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, TEE_ELF))
++            gdb.execute("b user_ta.c:704")
++            gdb.execute("continue")
++            LDELF_ADDR = gdb.parse_and_eval("code_addr")
++            # LDELF_ADDR is cast to integer for further operations on segments
++            LDELF_ADDR = int(LDELF_ADDR)
++
++            # reading ldelf.elf segments and storing them
++            segments = readSegments(LDELF_PATH + "/ldelf.elf")
++            RODATA_ADDR = hex( LDELF_ADDR + int(segments['.rodata'], 16))
++            DATA_ADDR = hex( LDELF_ADDR + int(segments['.data'], 16))
++            BSS_ADDR = hex( LDELF_ADDR + int(segments['.bss'], 16))
++            LDELF_ADDR = hex(LDELF_ADDR)
++
++            print("---Addresses(LDELF)---")
++            print("LDELF load address: {}".format(LDELF_ADDR))
++            print("RODATA_ADDR: {} (offset {})".format(RODATA_ADDR, segments['.rodata']))
++            print("DATA_ADDR: {} (offset {})".format(DATA_ADDR, segments['.data']))
++            print("BSS_ADDR: {} (offset {})".format(BSS_ADDR, segments['.bss']))
++
++            # Segments retrieved are explicitly loaded
++            gdb.execute("add-symbol-file {}/{} {} -s .rodata {} -s .data {} -s .bss {}".format(LDELF_PATH, "ldelf.elf", LDELF_ADDR, RODATA_ADDR, DATA_ADDR, BSS_ADDR))
++            gdb.execute("b ldelf/main.c:168")
++            gdb.execute("continue")
++
++            # TA load address is retrieved, and cast to integer for further operations
++            address = gdb.parse_and_eval("elf->load_addr")
++            TA_LOAD_ADDR = int(address)
++            print("TA_LOAD_ADDR updated: " + str(hex(TA_LOAD_ADDR)))
++
++            # reading ta.elf segments and storing them
++            segments = readSegments(OPTEE_PROJ_PATH + "/" + ta)
++            TA_LOAD_ADDR = TA_LOAD_ADDR + int(segments['.text'], 16) # .text size is added directly to TA_LOAD_ADDR, not specified apart
++            RODATA_ADDR = hex( TA_LOAD_ADDR + int(segments['.rodata'], 16))
++            DATA_ADDR = hex( TA_LOAD_ADDR + int(segments['.data'], 16))
++            BSS_ADDR = hex( TA_LOAD_ADDR + int(segments['.bss'], 16))
++            TA_LOAD_ADDR = hex(TA_LOAD_ADDR)
++
++            print("---Addresses(TA)---")
++            print("TA load address: {}".format(TA_LOAD_ADDR))
++            print("RODATA_ADDR: {} (offset {})".format(RODATA_ADDR, segments['.rodata']))
++            print("DATA_ADDR: {} (offset {})".format(DATA_ADDR, segments['.data']))
++            print("BSS_ADDR: {} (offset {})".format(BSS_ADDR, segments['.bss']))
++
++            gdb.execute("add-symbol-file {}/{} {} -s .rodata {} -s .data {} -s .bss {}".format(OPTEE_PROJ_PATH, ta, TA_LOAD_ADDR, RODATA_ADDR, DATA_ADDR, BSS_ADDR))
+             gdb.execute("b TA_InvokeCommandEntryPoint")
+ 
+         except IndexError:
+-- 
+2.20.1
+
