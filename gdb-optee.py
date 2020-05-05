@@ -62,6 +62,7 @@ TA_LOAD_ADDR="0x10d020"
 # OPTEE_PROJ_PATH to another valid setup coming from build.git
 # (https://github.com/OP-TEE/build)
 OPTEE_PROJ_PATH = "/home/luca/Optee"
+OPTEE_PROJ_PATH = "/media/jbech/SSHD_LINUX/devel/optee_projects/qemu"
 if 'OPTEE_PROJ_PATH' in os.environ:
     OPTEE_PROJ_PATH = os.environ['OPTEE_PROJ_PATH']
     # QEMU v7 is the default, but if OPTEE_PROJ_PATH it's probably QEMU v8 and
@@ -124,7 +125,7 @@ def readSegments(file):
     for line in result:
         tmp = line[line.find(' .') : line.find('\t')].split(' ')
         seg = [l for l in tmp if l != ""]
-        if seg != []: 
+        if seg != []:
             offsets[seg[0]] = seg[2]
 
     return offsets
@@ -132,8 +133,6 @@ def readSegments(file):
 class LoadTA(gdb.Command):
     def __init__(self):
         super(LoadTA, self).__init__("load_ta", gdb.COMMAND_USER)
-
-
 
     def invoke(self, arg, from_tty):
         try:
@@ -209,7 +208,6 @@ class LoadTA(gdb.Command):
             print("RODATA_ADDR: {} (offset {})".format(RODATA_ADDR, segments['.rodata']))
             print("DATA_ADDR: {} (offset {})".format(DATA_ADDR, segments['.data']))
             print("BSS_ADDR: {} (offset {})".format(BSS_ADDR, segments['.bss']))
-
 
             # Segments retrieved are explicitly loaded
             gdb.execute("add-symbol-file {}/{} {} -s .rodata {} -s .data {} -s .bss {}".format(LDELF_PATH, "ldelf.elf", LDELF_ADDR, RODATA_ADDR, DATA_ADDR, BSS_ADDR))
@@ -390,4 +388,3 @@ class OPTEECmd(gdb.Command):
         return filter(lambda candidate: candidate.startswith(word), candidates)
 
 OPTEECmd()
-
