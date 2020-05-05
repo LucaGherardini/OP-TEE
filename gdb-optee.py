@@ -61,7 +61,6 @@ TA_LOAD_ADDR="0x10d020"
 # Main path to a OP-TEE project which can be overridden by exporting
 # OPTEE_PROJ_PATH to another valid setup coming from build.git
 # (https://github.com/OP-TEE/build)
-OPTEE_PROJ_PATH = "/home/luca/Optee"
 OPTEE_PROJ_PATH = "/media/jbech/SSHD_LINUX/devel/optee_projects/qemu"
 if 'OPTEE_PROJ_PATH' in os.environ:
     OPTEE_PROJ_PATH = os.environ['OPTEE_PROJ_PATH']
