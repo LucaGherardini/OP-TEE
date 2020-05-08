@@ -57,6 +57,7 @@ UBOOT_ELF                = "u-boot/u-boot"
 # This has been pretty much the same on QEMU v7 for a long time, but it happens
 # that it needs to be changed
 TA_LOAD_ADDR="0x10d020"
+IS_FIRST_TA = True
 
 # Main path to a OP-TEE project which can be overridden by exporting
 # OPTEE_PROJ_PATH to another valid setup coming from build.git
@@ -92,7 +93,7 @@ class Connect(gdb.Command):
         if arg == "gdbserver":
             remote = "127.0.0.1:12345"
             name = "gdbserver"
-
+        
         print("Connecting to {} at {}".format(name, remote))
         gdb.execute("target remote {}".format(remote))
         IS_CONNECTED = True
@@ -134,6 +135,7 @@ class LoadTA(gdb.Command):
         super(LoadTA, self).__init__("load_ta", gdb.COMMAND_USER)
 
     def invoke(self, arg, from_tty):
+        global IS_FIRST_TA
         try:
             print("Loading symbols for '{}' Trusted Application".format(arg))
             ta = None
@@ -188,31 +190,35 @@ class LoadTA(gdb.Command):
                 return
 
             # Loading TEE.elf and setting breakpoint to get ldelf load address
-            gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, TEE_ELF))
-            gdb.execute("b user_ta.c:704")
+            if IS_FIRST_TA:
+                IS_FIRST_TA = False
+                gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, TEE_ELF))
+                gdb.execute("b user_ta.c:704")
+                gdb.execute("continue")
+                LDELF_ADDR = gdb.parse_and_eval("code_addr")
+                # LDELF_ADDR is cast to integer for further operations on segments
+                LDELF_ADDR = int(LDELF_ADDR)
+
+                # reading ldelf.elf segments and storing them
+                segments = readSegments(LDELF_PATH + "/ldelf.elf")
+                RODATA_ADDR = hex( LDELF_ADDR + int(segments['.rodata'], 16))
+                DATA_ADDR = hex( LDELF_ADDR + int(segments['.data'], 16))
+                BSS_ADDR = hex( LDELF_ADDR + int(segments['.bss'], 16))
+                LDELF_ADDR = hex(LDELF_ADDR)
+
+                print("---Addresses(LDELF)---")
+                print("LDELF load address: {}".format(LDELF_ADDR))
+                print("RODATA_ADDR: {} (offset {})".format(RODATA_ADDR, segments['.rodata']))
+                print("DATA_ADDR: {} (offset {})".format(DATA_ADDR, segments['.data']))
+                print("BSS_ADDR: {} (offset {})".format(BSS_ADDR, segments['.bss']))
+
+                # Segments retrieved are explicitly loaded
+                gdb.execute("add-symbol-file {}/{} {} -s .rodata {} -s .data {} -s .bss {}".format(LDELF_PATH, "ldelf.elf", LDELF_ADDR, RODATA_ADDR, DATA_ADDR, BSS_ADDR))
+                gdb.execute("b ldelf/main.c:168")
+            else:
+                gdb.execute("continue")
+       
             gdb.execute("continue")
-            LDELF_ADDR = gdb.parse_and_eval("code_addr")
-            # LDELF_ADDR is cast to integer for further operations on segments
-            LDELF_ADDR = int(LDELF_ADDR)
-
-            # reading ldelf.elf segments and storing them
-            segments = readSegments(LDELF_PATH + "/ldelf.elf")
-            RODATA_ADDR = hex( LDELF_ADDR + int(segments['.rodata'], 16))
-            DATA_ADDR = hex( LDELF_ADDR + int(segments['.data'], 16))
-            BSS_ADDR = hex( LDELF_ADDR + int(segments['.bss'], 16))
-            LDELF_ADDR = hex(LDELF_ADDR)
-
-            print("---Addresses(LDELF)---")
-            print("LDELF load address: {}".format(LDELF_ADDR))
-            print("RODATA_ADDR: {} (offset {})".format(RODATA_ADDR, segments['.rodata']))
-            print("DATA_ADDR: {} (offset {})".format(DATA_ADDR, segments['.data']))
-            print("BSS_ADDR: {} (offset {})".format(BSS_ADDR, segments['.bss']))
-
-            # Segments retrieved are explicitly loaded
-            gdb.execute("add-symbol-file {}/{} {} -s .rodata {} -s .data {} -s .bss {}".format(LDELF_PATH, "ldelf.elf", LDELF_ADDR, RODATA_ADDR, DATA_ADDR, BSS_ADDR))
-            gdb.execute("b ldelf/main.c:168")
-            gdb.execute("continue")
-
             # TA load address is retrieved, and cast to integer for further operations
             address = gdb.parse_and_eval("elf->load_addr")
             TA_LOAD_ADDR = int(address)
@@ -233,7 +239,11 @@ class LoadTA(gdb.Command):
             print("BSS_ADDR: {} (offset {})".format(BSS_ADDR, segments['.bss']))
 
             gdb.execute("add-symbol-file {}/{} {} -s .rodata {} -s .data {} -s .bss {}".format(OPTEE_PROJ_PATH, ta, TA_LOAD_ADDR, RODATA_ADDR, DATA_ADDR, BSS_ADDR))
+            
             gdb.execute("b TA_InvokeCommandEntryPoint")
+
+            gdb.execute("continue")
+            gdb.execute("clear TA_InvokeCommandEntryPoint")
 
         except IndexError:
             print("No TA specified")
@@ -357,8 +367,10 @@ LoadUBoot()
 class OPTEECmd(gdb.Command):
     def __init__(self):
         super(OPTEECmd, self).__init__("optee-stat", gdb.COMMAND_USER)
+        print("OPTEECmd init")
 
     def invoke(self, arg, from_tty):
+        print("OPTEECmd invoke")
         if arg == "memlayout":
             CFG_SHMEM_START = gdb.parse_and_eval("CFG_SHMEM_START")
             CFG_SHMEM_SIZE = gdb.parse_and_eval("CFG_SHMEM_SIZE")
