@@ -94,3 +94,10 @@ entry_func = D/LD + 32 (numeri interi)
  /home/luca/Optee/optee_os/out/arm/ldelf/ldelf.elf
 
  luca@luca-X580VN:~/Optee/optee_os/out/arm/ldelf$ readelf -S ldelf.elf 
+
+-------------------------------------------------------
+
+Flag IS_FIRST_TA per indicare se è la prima volta che mandiamo in esecuzione una ta.
+Se è la prima volta, facciamo le solite cose.
+Se non è la prima volta, non ricarichiamo di nuovo il tee e il ldelf, ma solo la ta con il nuovo indirizzo.
+In ogni caso impostiamo il breakpoint in TAInvokeEntryPoint e poi lo eliminiamo per evitare che lo impostiamo più volte
