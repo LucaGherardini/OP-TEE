@@ -57,7 +57,6 @@ UBOOT_ELF                = "u-boot/u-boot"
 # This has been pretty much the same on QEMU v7 for a long time, but it happens
 # that it needs to be changed
 TA_LOAD_ADDR="0x10d020"
-IS_FIRST_TA = True
 
 # Main path to a OP-TEE project which can be overridden by exporting
 # OPTEE_PROJ_PATH to another valid setup coming from build.git
@@ -79,6 +78,9 @@ if 'TA_LOAD_ADDR' in os.environ:
     TA_LOAD_ADDR = os.environ['TA_LOAD_ADDR']
 
 IS_CONNECTED = False
+
+# Flag used to detect if is the first time we load a TA
+IS_FIRST_TA = True
 
 class Connect(gdb.Command):
     def __init__(self):
@@ -135,7 +137,6 @@ class LoadTA(gdb.Command):
         super(LoadTA, self).__init__("load_ta", gdb.COMMAND_USER)
 
     def invoke(self, arg, from_tty):
-        global IS_FIRST_TA
         try:
             print("Loading symbols for '{}' Trusted Application".format(arg))
             ta = None
@@ -189,7 +190,9 @@ class LoadTA(gdb.Command):
                 print("Unknown TA!")
                 return
 
-            # Loading TEE.elf and setting breakpoint to get ldelf load address
+            # Fetching variable from global context
+            global IS_FIRST_TA
+            # Loading TEE.elf and setting breakpoint to get ldelf load address (only first time)
             if IS_FIRST_TA:
                 IS_FIRST_TA = False
                 gdb.execute("symbol-file {}/{}".format(OPTEE_PROJ_PATH, TEE_ELF))
@@ -367,10 +370,8 @@ LoadUBoot()
 class OPTEECmd(gdb.Command):
     def __init__(self):
         super(OPTEECmd, self).__init__("optee-stat", gdb.COMMAND_USER)
-        print("OPTEECmd init")
 
     def invoke(self, arg, from_tty):
-        print("OPTEECmd invoke")
         if arg == "memlayout":
             CFG_SHMEM_START = gdb.parse_and_eval("CFG_SHMEM_START")
             CFG_SHMEM_SIZE = gdb.parse_and_eval("CFG_SHMEM_SIZE")
