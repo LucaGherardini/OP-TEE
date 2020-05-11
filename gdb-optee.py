@@ -242,11 +242,13 @@ class LoadTA(gdb.Command):
             print("BSS_ADDR: {} (offset {})".format(BSS_ADDR, segments['.bss']))
 
             gdb.execute("add-symbol-file {}/{} {} -s .rodata {} -s .data {} -s .bss {}".format(OPTEE_PROJ_PATH, ta, TA_LOAD_ADDR, RODATA_ADDR, DATA_ADDR, BSS_ADDR))
-            
-            gdb.execute("b TA_InvokeCommandEntryPoint")
 
+            breakpoints_info = gdb.execute("info breakpoints", to_string=True)
+            if "TA_InvokeCommandEntryPoint" in breakpoints_info:
+                gdb.execute("clear TA_InvokeCommandEntryPoint")
+
+            gdb.execute("b TA_InvokeCommandEntryPoint")
             gdb.execute("continue")
-            gdb.execute("clear TA_InvokeCommandEntryPoint")
 
         except IndexError:
             print("No TA specified")
